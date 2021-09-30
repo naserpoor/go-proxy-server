@@ -2,13 +2,23 @@ package main
 
 import (
 	"fmt"
+	"gopkg.in/elazarl/goproxy.v1"
+	"log"
 	"net"
+	"net/http"
 	"os"
 )
 
 func main() {
 	server,_ := net.Listen("tcp", fmt.Sprintf("%v",os.Args[1]))
 	fmt.Println("Server Started")
+
+	//http.HandleFunc("/",http_proxy)
+	//http.ListenAndServe(":12012",nil)
+	go func() {
+		proxy := goproxy.NewProxyHttpServer()
+		log.Fatal(http.ListenAndServe(":12012", proxy))
+	}()
 
 	for {
 		conn,_ := server.Accept()
