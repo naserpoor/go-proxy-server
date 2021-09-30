@@ -1,10 +1,14 @@
 package main
 
-import "net"
+import (
+	"fmt"
+	"net"
+	"os"
+)
 
 func main() {
 	input := [2]byte{}
-	server,_ := net.Listen("tcp","localhost:1080")
+	server,_ := net.Listen("tcp", fmt.Sprintf("%v",os.Args[1]))
 
 	for {
 		conn,_ := server.Accept()
