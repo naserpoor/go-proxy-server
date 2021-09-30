@@ -6,6 +6,13 @@ import (
 	"net"
 )
 
+func socks4_reply(vn byte, result byte, ip uint32, port uint16) []byte {
+	var res = []byte{vn,result,0,0,0,0,0,0}
+	binary.LittleEndian.PutUint32(res[2:6],ip)
+	binary.LittleEndian.PutUint16(res[2:6],port)
+	return res
+}
+
 func socks4(conn net.Conn) {
 	inputBuffer := [16]byte{}
 	conn.Read(inputBuffer[:])
@@ -21,28 +28,8 @@ func socks4(conn net.Conn) {
 		return
 	}
 
-	conn.Write([]byte{0,90,0,0,0,0,0,0})
+	conn.Write(socks4_reply(0,90,0,0))
 	go director(conn,conn2)
 	go director(conn2,conn)
 }
 
-func director(conn1 net.Conn, conn2 net.Conn){
-	input := [128]byte{}
-	for{
-		n,err := conn1.Read(input[:])
-		if err != nil {
-			fmt.Println(err)
-			conn2.Close()
-			conn1.Close()
-			return
-		} else if n > 0 {
-			_,err := conn2.Write(input[:n])
-			if err != nil {
-				fmt.Println(err)
-				conn1.Close()
-				conn2.Close()
-				return
-			}
-		}
-	}
-}
