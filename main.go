@@ -9,6 +9,7 @@ import (
 func main() {
 	input := [2]byte{}
 	server,_ := net.Listen("tcp", fmt.Sprintf("%v",os.Args[1]))
+	fmt.Println("Server Started")
 
 	for {
 		conn,_ := server.Accept()
