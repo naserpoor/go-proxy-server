@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 )
 
 func main() {
@@ -12,11 +13,10 @@ func main() {
 
 	for {
 		conn,_ := server.Accept()
+		conn.SetReadDeadline(time.Now().Add(time.Second*5))
 		conn.Read(input[:])
-		if input[0] == 4 && input[1] == 1 {
-			go socks4(conn)
-		} else {
-			conn.Close()
-		}
+		conn.SetWriteDeadline(time.Now().Add(time.Second*5))
+		conn.Write([]byte{12,11,10})
+		conn.Close()
 	}
 }
