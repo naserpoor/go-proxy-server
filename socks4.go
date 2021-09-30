@@ -14,13 +14,14 @@ func socks4_reply(vn byte, result byte, ip uint32, port uint16) []byte {
 }
 
 func socks4(conn net.Conn) {
-	inputBuffer := [16]byte{}
-	conn.Read(inputBuffer[:])
+	input := [16]byte{}
+	conn.Read(input[:])
+	fmt.Println(input)
 
 	var port uint16
-	port = binary.BigEndian.Uint16(inputBuffer[0:2])
+	port = binary.BigEndian.Uint16(input[0:2])
 
-	conn2,err := net.Dial("tcp",fmt.Sprintf("%s:%d",net.IPv4(inputBuffer[2],inputBuffer[3],inputBuffer[4],inputBuffer[5]).String(),port))
+	conn2,err := net.Dial("tcp",fmt.Sprintf("%s:%d",net.IPv4(input[2], input[3], input[4], input[5]).String(),port))
 	if err != nil {
 		fmt.Println(err)
 		conn.Close()

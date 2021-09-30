@@ -10,6 +10,7 @@ func socks5(conn net.Conn,n_auth byte) {
 	input := make([]byte,n_auth)
 
 	conn.Read(input)
+	fmt.Println(input)
 
 	var has_no_auth = false
 	for _, auth_type := range input {
@@ -27,6 +28,7 @@ func socks5(conn net.Conn,n_auth byte) {
 
 	input = make([]byte,10)
 	conn.Read(input)
+	fmt.Println(input)
 	if input[0] != 5 || input[1] != 1 || input[2] != 0 || input[3] != 1 {
 		conn.Close()
 		return

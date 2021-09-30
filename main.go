@@ -13,6 +13,8 @@ func main() {
 	for {
 		conn,_ := server.Accept()
 		conn.Read(input[:])
+		fmt.Println("Connection Started")
+		fmt.Println(input)
 		if input[0] == 4 && input[1] == 1 {
 			go socks4(conn)
 		} else if input[0] == 5 && input[1] > 0 {
