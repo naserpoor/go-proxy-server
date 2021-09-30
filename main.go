@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"time"
 )
 
 func main() {
@@ -16,7 +15,6 @@ func main() {
 		go func() {
 			input := make([]byte,2)
 			fmt.Println("Connection Started")
-			conn.SetReadDeadline(time.Now().Add(time.Second*2))
 			_,err := conn.Read(input[:])
 			if err != nil {
 				fmt.Println(err)
