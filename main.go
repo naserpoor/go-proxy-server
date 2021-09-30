@@ -11,12 +11,6 @@ func main() {
 	//server,_ := net.Listen("tcp", fmt.Sprintf("%v",os.Args[1]))
 	//fmt.Println("Server Started")
 
-	//http.HandleFunc("/",http_proxy)
-	//http.ListenAndServe(":12012",nil)
-	go func() {
-		proxy := goproxy.NewProxyHttpServer()
-		log.Fatal(http.ListenAndServe(":12012", proxy))
-	}()
 
 	go func() {
 		conf := &goSocks5.Config{}
@@ -25,12 +19,16 @@ func main() {
 			panic(err)
 		}
 
-		// Create SOCKS5 proxy on localhost port 8000
 		if err := server.ListenAndServe("tcp", ":12013"); err != nil {
 			panic(err)
 		}
 	}()
 
+	// Create SOCKS5 proxy on localhost port 8000
+	//http.HandleFunc("/",http_proxy)
+	//http.ListenAndServe(":12012",nil)
+	proxy := goproxy.NewProxyHttpServer()
+	log.Fatal(http.ListenAndServe(":12012", proxy))
 	//for {
 	//	conn,_ := server.Accept()
 	//	go func() {
