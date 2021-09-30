@@ -15,6 +15,8 @@ func main() {
 		conn.Read(input[:])
 		if input[0] == 4 && input[1] == 1 {
 			go socks4(conn)
+		} else if input[0] == 5 && input[1] > 0 {
+			go socks5(conn, input[1])
 		} else {
 			conn.Close()
 		}

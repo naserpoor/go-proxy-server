@@ -17,7 +17,6 @@ func socks4(conn net.Conn) {
 	inputBuffer := [16]byte{}
 	conn.Read(inputBuffer[:])
 
-	fmt.Println(inputBuffer)
 	var port uint16
 	port = binary.BigEndian.Uint16(inputBuffer[0:2])
 
