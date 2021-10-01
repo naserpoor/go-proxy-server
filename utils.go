@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"github.com/google/logger"
 	"net"
 )
 
@@ -21,14 +21,17 @@ func connToChannel(conn net.Conn) <-chan []byte {
 	channel := make(chan []byte,1)
 	go func() {
 		for {
-			input := makeInput(128)
+			input := makeInput(1024)
 			n ,er := conn.Read(input)
 			if er != nil {
-				fmt.Println("Error Read From:" + conn.RemoteAddr().String())
-				fmt.Println(er)
+				logger.Errorln("Error Read From:" + conn.RemoteAddr().String())
+				logger.Errorln(er)
 				close(channel)
 				return
 			} else if n > 0 {
+				if *lpackets {
+					logger.Infof("%v Bytes Read From %v\n", n, conn.RemoteAddr().String())
+				}
 				channel <- input[:n]
 			}
 		}

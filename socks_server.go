@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/google/logger"
 	"math"
 	"net"
 	"strconv"
@@ -30,19 +31,25 @@ func NewSocksServer(ipStr string, portStr string) (result *SocksServer, err erro
 func (server *SocksServer) Start() {
 	ser, er := net.Listen("tcp", fmt.Sprintf("%v:%v", ParseIpUint32(server.ip), server.port))
 	if er != nil {
-		fmt.Println("Server Cant Start")
-		fmt.Println(er)
+		if *logging {
+			logger.Errorln("Server Cant Start")
+			logger.Errorln(er)
+		}
 		return
 	}
-	fmt.Println("Server Start Accepting...")
+	logger.Infoln("Server Start Accepting...")
 	for {
 		conn, er := ser.Accept()
 		if er != nil {
-			fmt.Println("Server Error Accepting!")
-			fmt.Println(er)
+			if *logging {
+				logger.Errorln("Server Error Accepting!")
+				logger.Errorln(er)
+			}
 			return
 		}
-		fmt.Println("New Connection Accepted!")
+		if *logging {
+			logger.Infoln("New Connection Accepted!")
+		}
 		connection := NewConnection(conn)
 		go connection.StartConnectionProcess()
 	}
