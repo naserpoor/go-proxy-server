@@ -191,9 +191,28 @@ func (s Socks4aConnectingState) ProcessData() (State, error) {
 }
 
 func (s SocksDirectingState) ProcessData() (State, error) {
-	go director(s.conn,s.conn2)
-	go director(s.conn2,s.conn)
-	return nil, nil
+	chan1 := connToChannel(s.conn)
+	chan2 := connToChannel(s.conn2)
+
+	var input []byte
+	for{
+		select {
+		case input = <- chan1:
+			_,err := s.conn2.Write(input)
+			if err != nil {
+				fmt.Println("Error Directing Socks Write!:" + s.conn2.RemoteAddr().String())
+				fmt.Println(err)
+				return nil,err
+			}
+		case input = <- chan2:
+			_,err := s.conn.Write(input)
+			if err != nil {
+				fmt.Println("Error Directing Socks Write!:" + s.conn.RemoteAddr().String())
+				fmt.Println(err)
+				return nil,err
+			}
+		}
+	}
 }
 
 func (s Socks5InitialState) ProcessData() (State, error) {

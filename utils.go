@@ -5,29 +5,6 @@ import (
 	"net"
 )
 
-func director(conn1 net.Conn, conn2 net.Conn){
-	input := makeInput(128)
-	for{
-		n,err := conn1.Read(input)
-		if err != nil {
-			fmt.Println("Error Socks Directing Read!:" + conn1.RemoteAddr().String())
-			fmt.Println(err)
-			conn2.Close()
-			conn1.Close()
-			return
-		} else if n > 0 {
-			_,err := conn2.Write(input[:n])
-			if err != nil {
-				fmt.Println("Error Socks Directing Write!:" + conn2.RemoteAddr().String())
-				fmt.Println(err)
-				conn1.Close()
-				conn2.Close()
-				return
-			}
-		}
-	}
-}
-
 func makeInput(size int) []byte {
 	return makeInputI(size, 0)
 }
@@ -38,4 +15,25 @@ func makeInputI(size int, initialValue byte) []byte {
 		result[i] = initialValue
 	}
 	return result
+}
+
+func connToChannel(conn net.Conn) <-chan []byte {
+	channel := make(chan []byte,1)
+	go func() {
+		for {
+			input := makeInput(128)
+			n ,er := conn.Read(input)
+			if er != nil {
+				fmt.Println("Error Read From:" + conn.RemoteAddr().String())
+				fmt.Println(er)
+				close(channel)
+				return
+			}
+			if n > 0 {
+				channel <- input[:n]
+			}
+		}
+
+	}()
+	return channel
 }
