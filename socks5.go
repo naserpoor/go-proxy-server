@@ -38,7 +38,7 @@ func socks5(conn net.Conn,n_auth byte) {
 	var port uint16
 	port = binary.BigEndian.Uint16(input[8:10])
 
-	conn2,err := net.Dial("tcp",fmt.Sprintf("%s:%d",net.IPv4(input[4],input[5],input[6],input[7]).String(),port))
+	_,err := net.Dial("tcp",fmt.Sprintf("%s:%d",net.IPv4(input[4],input[5],input[6],input[7]).String(),port))
 	if err != nil {
 		fmt.Println(err)
 		conn.Close()
@@ -46,7 +46,5 @@ func socks5(conn net.Conn,n_auth byte) {
 	}
 
 	conn.Write([]byte{5,0,0,1,0,0,0,0,0,0})
-	go director(conn,conn2)
-	go director(conn2,conn)
 
 }
