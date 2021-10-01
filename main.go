@@ -1,33 +1,20 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"net"
-	"os"
 )
 
-func main() {
-	server,_ := net.Listen("tcp", fmt.Sprintf("%v",os.Args[1]))
-	fmt.Println("Server Started")
+var ip = flag.String("ip", "localhost", "ip addr server binds to")
+var port = flag.String("port", "1080", "port number server binds to")
 
-	for {
-		conn,_ := server.Accept()
-		go func() {
-			input := make([]byte,2)
-			fmt.Println("Connection Started")
-			_,err := conn.Read(input[:])
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			fmt.Println(input)
-			if input[0] == 4 && input[1] == 1 {
-				go socks4(conn)
-			} else if input[0] == 5 && input[1] > 0 {
-				go socks5(conn, input[1])
-			} else {
-				conn.Close()
-			}
-		}()
+func main() {
+	flag.Parse()
+	server, er := NewSocksServer(*ip,*port)
+	if er != nil {
+		fmt.Println("Server Creation Error!")
+		fmt.Println(er)
+		return
 	}
+	server.Start()
 }
