@@ -194,17 +194,24 @@ func (s SocksDirectingState) ProcessData() (State, error) {
 	chan1 := connToChannel(s.conn)
 	chan2 := connToChannel(s.conn2)
 
-	var input []byte
 	for{
 		select {
-		case input = <- chan1:
+		case input,ok := <- chan1:
+			fmt.Printf("%v\n", input)
+			if !ok {
+				return nil,nil
+			}
 			_,err := s.conn2.Write(input)
 			if err != nil {
 				fmt.Println("Error Directing Socks Write!:" + s.conn2.RemoteAddr().String())
 				fmt.Println(err)
 				return nil,err
 			}
-		case input = <- chan2:
+		case input,ok := <- chan2:
+			fmt.Printf("%v\n", input)
+			if !ok {
+				return nil,nil
+			}
 			_,err := s.conn.Write(input)
 			if err != nil {
 				fmt.Println("Error Directing Socks Write!:" + s.conn.RemoteAddr().String())

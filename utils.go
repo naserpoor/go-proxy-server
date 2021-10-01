@@ -28,8 +28,7 @@ func connToChannel(conn net.Conn) <-chan []byte {
 				fmt.Println(er)
 				close(channel)
 				return
-			}
-			if n > 0 {
+			} else if n > 0 {
 				channel <- input[:n]
 			}
 		}
