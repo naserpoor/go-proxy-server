@@ -44,7 +44,7 @@ func (s Socks5InitialState) ProcessData() (State, error) {
 	hasValidAuth := false
 	chosenAuth := byte(0x00)
 	for _, it := range auths {
-		if it == 0x00 || it == 0x02 {
+		if it == 0x02 {
 			hasValidAuth = true
 			chosenAuth = it
 		}
@@ -98,7 +98,54 @@ func (s Socks5CommandState) ProcessData() (State, error) {
 }
 
 func (s Socks5UserPasswordAuth) ProcessData() (State, error) {
-	return nil, errorT{"Not Implemented"}
+	input := makeInput(1)
+	_, er := readFromConnection(s.conn, input, "Error Socks5 Reading User Password Version")
+	if er != nil {
+		return nil, er
+	}
+
+	_, er = readFromConnection(s.conn, input, "Error Socks5 Reading Username Length")
+	if er != nil {
+		return nil, er
+	}
+
+	user_name := ""
+	if input[0] > 0 {
+		input = makeInput(int(input[0]))
+		_, er = readFromConnection(s.conn, input, "Error Socks5 Reading Username")
+		if er != nil {
+			return nil, er
+		}
+		user_name = string(input)
+	}
+
+	input = makeInput(1)
+	_, er = readFromConnection(s.conn, input, "Error Socks5 Reading Password Length")
+	if er != nil {
+		return nil, er
+	}
+
+	pass_word := ""
+	if input[0] > 0 {
+		input = makeInput(int(input[0]))
+		_, er = readFromConnection(s.conn, input, "Error Socks5 Reading Username")
+		if er != nil {
+			return nil, er
+		}
+		pass_word = string(input)
+	}
+
+	if user_name != "Alirexa" || pass_word != "Alirexa" {
+		writeToConnection(s.conn, []byte{0x01, 0x01}, "")
+		return nil, errorT{ "Error Wrong Username Or Password:" + user_name + ":" + pass_word }
+	}
+
+	_, er = writeToConnection(s.conn, []byte{0x01, 0x00}, "Error Writing User Password Auth Reply")
+	if er != nil {
+		return nil, er
+	}
+
+	return Socks5CommandState{s.conn}, nil
 }
 
 func (s Socks5ConnectingState) ProcessData() (State, error) {
