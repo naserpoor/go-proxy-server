@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/google/logger"
 	"net"
+	"strconv"
 )
 
 func makeInput(size int) []byte {
@@ -38,4 +39,66 @@ func connToChannel(conn net.Conn) <-chan []byte {
 
 	}()
 	return channel
+}
+
+
+func writeToConnection(conn net.Conn, data []byte, errorMsg string) (int, error) {
+	n, er := conn.Write(data)
+	if er != nil {
+		if *logging {
+			logger.Errorln(errorMsg)
+			logger.Errorln(conn.RemoteAddr().String())
+			logger.Errorln(er)
+		}
+		return 0, er
+	}
+	return n, nil
+}
+
+func readFromConnection(conn net.Conn, input []byte, errorMsg string) (int, error) {
+	n, er := conn.Read(input)
+	if er != nil {
+		if *logging {
+			logger.Errorln(errorMsg)
+			logger.Errorln(conn.RemoteAddr().String())
+			logger.Errorln(er)
+		}
+		return 0, er
+	}
+	return n, nil
+}
+
+
+func createConnectionIpv4(ip uint32, port uint16) (net.Conn, error) {
+	address := FormatIpAndPort(ip, port)
+	if *logging {
+		logger.Infoln(address)
+	}
+	conn, er := net.Dial("tcp", address)
+
+	if er != nil {
+		if *logging {
+			logger.Errorln("Error Connecting Destination Ip&Port!")
+			logger.Errorln(er)
+		}
+		return nil, er
+	}
+	return conn, nil
+}
+
+func createConnectionDomain(domain string, port uint16) (net.Conn, error) {
+	address := domain + ":" + strconv.Itoa(int(port))
+	if *logging {
+		logger.Infoln(address)
+	}
+	conn, er := net.Dial("tcp", address)
+
+	if er != nil {
+		if *logging {
+			logger.Errorln("Error Connecting Destination DomainName&Port!")
+			logger.Errorln(er)
+		}
+		return nil, er
+	}
+	return conn, nil
 }
