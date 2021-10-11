@@ -29,6 +29,7 @@ func (c Connection) StartConnectionProcess() {
 				logger.Errorln("State Returned Error!")
 				logger.Errorln(er)
 			}
+			c.conn.Close()
 			return
 		}
 		c.state = nextState
@@ -46,11 +47,13 @@ type SocksRecognizerState struct {
 type Socks4InitialState struct {
 	conn net.Conn
 }
-type Socks4ConnectingState struct {
+type SocksIpv4PortConnectingState struct {
 	conn   net.Conn
 	ip     uint32
 	port   uint16
 	userId []byte
+	socksVer byte
+	bytes []byte
 }
 
 type SocksDirectingState struct {
@@ -58,14 +61,24 @@ type SocksDirectingState struct {
 	conn2 net.Conn
 }
 
-type Socks4aConnectingState struct {
+type SocksDomainPortConnectingState struct {
 	conn       net.Conn
 	port       uint16
 	userId     []byte
 	domainName []byte
+	socksVer byte
+	bytes []byte
 }
 type Socks5InitialState struct {
 	conn net.Conn
+}
+
+type Socks5UserPasswordAuth struct {
+	conn       net.Conn
+}
+
+type Socks5ConnectingState struct {
+	conn       net.Conn
 }
 
 func (s SocksRecognizerState) ProcessData() (State, error) {
@@ -171,28 +184,28 @@ func (s Socks4InitialState) ProcessData() (State, error) {
 		if *logging {
 			logger.Infof("Received DomainName: %v\n", domainName)
 		}
-		return Socks4aConnectingState{s.conn, port, userId, domainName}, nil
+		return SocksDomainPortConnectingState{ s.conn, port, userId, domainName, 0x04, nil}, nil
 	} else {
-		return Socks4ConnectingState{s.conn, ip, port, userId}, nil
+		return SocksIpv4PortConnectingState{s.conn, ip, port, userId, 0x04, nil}, nil
 	}
 }
 
-func (s Socks4ConnectingState) ProcessData() (State, error) {
+func (s SocksIpv4PortConnectingState) ProcessData() (State, error) {
 	address := FormatIpAndPort(s.ip, s.port)
 	if *logging {
 		logger.Infoln(address)
 	}
 	conn2, er := net.Dial("tcp", address)
-	return processSecondConnections(s.conn, conn2, er, false)
+	return processSecondConnections(s.socksVer, s.conn, conn2, er, false,s.bytes)
 }
 
-func (s Socks4aConnectingState) ProcessData() (State, error) {
+func (s SocksDomainPortConnectingState) ProcessData() (State, error) {
 	address := string(s.domainName) + ":" + strconv.Itoa(int(s.port))
 	if *logging {
 		logger.Infoln(address)
 	}
 	conn2, er := net.Dial("tcp", address)
-	return processSecondConnections(s.conn, conn2, er, true)
+	return processSecondConnections(s.socksVer, s.conn, conn2, er, true,s.bytes)
 }
 
 func (s SocksDirectingState) ProcessData() (State, error) {
@@ -216,8 +229,112 @@ func (s SocksDirectingState) ProcessData() (State, error) {
 }
 
 func (s Socks5InitialState) ProcessData() (State, error) {
+	input := makeInput(1)
+	_, er := s.conn.Read(input)
+	if er != nil {
+		if *logging {
+			logger.Errorln("Error Reading Socks5 nAuth!")
+			logger.Errorln(er)
+		}
+		return nil, er
+	}
+
+	nAuth := input[0]
+	if nAuth <= 0 {
+		return nil,errorT{error:"nAuth is Less Equal Than 0!" }
+	}
+	input = makeInput(int(nAuth))
+	_, er = s.conn.Read(input)
+	if er != nil {
+		if *logging {
+			logger.Errorln("Error Reading Socks5 auths!")
+			logger.Errorln(er)
+		}
+		return nil, er
+	}
+	auths := input
+	hasValidAuth := false
+	chosenAuth := byte(0x00)
+	for _, it := range auths {
+		if it == 0x00 || it == 0x02 {
+			hasValidAuth = true
+			chosenAuth = it
+		}
+	}
+	if !hasValidAuth {
+		s.conn.Write([]byte{0x05,0xFF})
+		return nil, errorT{"No Valid Auth Found!"}
+	}
+
+	_, er = s.conn.Write([]byte{0x05, chosenAuth})
+	if er != nil {
+		if *logging {
+			logger.Errorln("Send Socks5 Chosen Auth Error!")
+			logger.Errorln(er)
+		}
+		return nil, er
+	}
+
+	switch chosenAuth {
+	case 0x00:
+		return Socks5ConnectingState{conn: s.conn}, nil
+
+	case 0x02:
+		return Socks5UserPasswordAuth{conn: s.conn}, nil
+	}
 	return nil, nil
 }
+
+func (s Socks5ConnectingState) ProcessData() (State, error) {
+	input := makeInput(3)
+	_, er := s.conn.Read(input)
+
+	if er != nil {
+		if *logging {
+			logger.Errorln("Error Socks5 Reading Connecting Cmd!")
+			logger.Errorln(er)
+		}
+		return nil, er
+	}
+
+	if input[0] != 0x05 || input[2] != 0x00 {
+		return nil, errorT{"Error Socks5 Connecting Request Type!"}
+	}
+
+	cmd := input[1]
+	if cmd != 0x01 {
+		return nil, errorT{"Error Socks5 Not Supported Command"}
+	}
+
+	result, er := readSocks5Address(s.conn)
+	if er != nil {
+		return nil, er
+	}
+
+	switch result.addrType {
+	case 0x01:
+		return SocksIpv4PortConnectingState{conn: s.conn, port: result.port, ip: result.ipv4, socksVer: 0x05, bytes: result.bytes}, nil
+
+	default:
+		return nil, errorT{"Not Supported Socks5 Address Type"}
+	}
+}
+
+func (s Socks5UserPasswordAuth) ProcessData() (State, error) {
+	s.conn.Close()
+	return nil, nil
+}
+
+
+
+
+
+
+
+
+
+
+
 
 func socks4ReplyMessage(code byte, ip uint32, port uint16) []byte {
 	result := []byte{0, code}
@@ -233,7 +350,7 @@ func socks4ReplyMessage(code byte, ip uint32, port uint16) []byte {
 	return result
 }
 
-func processSecondConnections(conn1 net.Conn, conn2 net.Conn, er error, domain bool) (State, error) {
+func processSecondConnections(socksVer byte, conn1 net.Conn, conn2 net.Conn, er error, domain bool, bytes []byte) (State, error) {
 	if er != nil {
 		if *logging {
 			if domain {
@@ -243,11 +360,20 @@ func processSecondConnections(conn1 net.Conn, conn2 net.Conn, er error, domain b
 			}
 			logger.Errorln(er)
 		}
-		conn1.Write(socks4ReplyMessage(0x5B, 0, 0))
+		if socksVer == 0x04 {
+			conn1.Write(socks4ReplyMessage(0x5B, 0, 0))
+		} else {
+			conn1.Write(socks5ReplyMessage(0x05, bytes))
+		}
 		return nil, er
 	}
-	n, er := conn1.Write(socks4ReplyMessage(0x5A, 0, 0))
-	if er != nil || n < 8 {
+	if socksVer == 0x04 {
+		_, er = conn1.Write(socks4ReplyMessage(0x5A, 0, 0))
+	} else {
+		_, er = conn1.Write(socks5ReplyMessage(0x00, bytes))
+	}
+
+	if er != nil{
 		if *logging {
 			logger.Errorln("Error Sending Socks Reply")
 			logger.Errorln(er)
@@ -277,4 +403,70 @@ func writeToConn(conn net.Conn, input []byte, ok bool) error {
 		return err
 	}
 	return nil
+}
+
+type Socks5Address struct {
+	addrType byte
+	ipv4 uint32
+	domainName string
+	port uint16
+	bytes []byte
+}
+
+func readSocks5Address(conn net.Conn) (*Socks5Address, error) {
+	result := new(Socks5Address)
+	result.bytes = makeInput(0)
+	input := makeInput(1)
+	_, er := conn.Read(input)
+	if er != nil {
+		if *logging {
+			logger.Errorln("Error Reading Socks5 Address Type!")
+			logger.Errorln(er)
+		}
+		return nil, er
+	}
+	result.bytes = append(result.bytes, input...)
+	addrType := input[0]
+	result.addrType = addrType
+
+	switch addrType {
+	case 0x01:
+		input = makeInput(4)
+		_, er := conn.Read(input)
+		if er != nil {
+			if *logging {
+				logger.Errorln("Error Reading Socks5 Ip Address!")
+				logger.Errorln(er)
+			}
+			return nil, er
+		}
+
+		result.bytes = append(result.bytes, input...)
+		ipv4 := binary.LittleEndian.Uint32(input)
+		result.ipv4 = ipv4
+
+	case 0x03:
+
+
+	case 0x04:
+	}
+
+	input = makeInput(2)
+	_, er = conn.Read(input)
+	if er != nil {
+		if *logging {
+			logger.Errorln("Error Socks5 Reading Port Address!")
+			logger.Errorln(er)
+		}
+		return nil, er
+	}
+	result.bytes = append(result.bytes, input...)
+	port := binary.BigEndian.Uint16(input)
+	result.port = port
+
+	return result, nil
+}
+
+func socks5ReplyMessage(status byte, socks5Addr []byte) []byte {
+	return append([]byte{0x05, status, 0x00}, socks5Addr...)
 }
