@@ -149,22 +149,27 @@ func (s Socks5UserPasswordAuth) ProcessData() (State, error) {
 }
 
 func (s Socks5ConnectingState) ProcessData() (State, error) {
+	var (
+		conn2 net.Conn
+		er error
+	)
 	switch s.socks4Addr.addrType {
 	case 0x01:
-		conn2, er := createConnectionIpv4(s.socks4Addr.ipv4, s.socks4Addr.port)
-		if er != nil {
-			writeToConnection(s.conn, socks5ReplyMessage(0x05, s.socks4Addr.bytes), "Error Writing Socks5 Reply")
-			return nil, er
-		}
-		_, er = writeToConnection(s.conn, socks5ReplyMessage(0x00, s.socks4Addr.bytes), "Error Writing Socks5 Reply")
-		if er != nil {
-			return nil, er
-		}
-		return SocksDirectingState{s.conn, conn2}, nil
-
+		conn2, er = createConnectionIpv4(s.socks4Addr.ipv4, s.socks4Addr.port)
+	case 0x03:
+		conn2, er = createConnectionDomain(s.socks4Addr.domainName,s.socks4Addr.port)
 	default:
 		return nil, errorT{"Not Supported Socks5 Address Type"}
 	}
+	if er != nil {
+		writeToConnection(s.conn, socks5ReplyMessage(0x05, s.socks4Addr.bytes), "Error Writing Socks5 Reply")
+		return nil, er
+	}
+	_, er = writeToConnection(s.conn, socks5ReplyMessage(0x00, s.socks4Addr.bytes), "Error Writing Socks5 Reply")
+	if er != nil {
+		return nil, er
+	}
+	return SocksDirectingState{s.conn, conn2}, nil
 }
 
 
@@ -203,8 +208,15 @@ func readSocks5Address(conn net.Conn) (*Socks5Address, error) {
 		result.ipv4 = ipv4
 
 	case 0x03:
+		addressBytes, er := extractSizePrefixedString(conn)
+		if er != nil {
+			return nil, er
+		}
+		result.domainName = string(addressBytes[1:])
+		result.bytes = append(result.bytes, addressBytes...)
 
 	case 0x04:
+		return nil, errorT{"Not Implemented!"}
 	}
 
 	input = makeInput(2)

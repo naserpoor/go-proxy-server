@@ -102,3 +102,38 @@ func createConnectionDomain(domain string, port uint16) (net.Conn, error) {
 	}
 	return conn, nil
 }
+
+func extractNullTerminatedString(conn net.Conn) ([]byte,error) {
+	result := makeInput(0)
+	input := makeInput(1)
+	for {
+		_, er := conn.Read(input)
+		if er != nil {
+			return nil, er
+		}
+		result = append(result, input[0])
+		if input[0] == 0 {
+			return result,nil
+		}
+	}
+}
+
+func extractSizePrefixedString(conn net.Conn) ([]byte,error) {
+	result := makeInput(0)
+	input := makeInput(1)
+	_, er := conn.Read(input)
+	if er != nil {
+		return nil, er
+	}
+	result = append(result, input[0])
+	size := input[0]
+	if size > 0 {
+		input = makeInput(int(size))
+		_, er := conn.Read(input)
+		if er != nil {
+			return nil, er
+		}
+		result = append(result, input...)
+	}
+	return result, nil
+}

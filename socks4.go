@@ -82,17 +82,9 @@ func (s Socks4InitialState) ProcessData() (State, error) {
 	}
 
 	if ip&0x000000ff == ip {
-		domainName := makeInput(0)
-		for {
-			_, er := readFromConnection(s.conn, input, "Error Reading Socks4a DomainName")
-			if er != nil {
-				return nil, er
-			}
-			if input[0] != 0 {
-				domainName = append(domainName, input[0])
-			} else {
-				break
-			}
+		domainName, er := extractNullTerminatedString(s.conn)
+		if er != nil {
+			return nil, er
 		}
 		if *logging {
 			logger.Infof("Received DomainName: %v\n", domainName)
