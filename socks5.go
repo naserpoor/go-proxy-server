@@ -104,40 +104,21 @@ func (s Socks5UserPasswordAuth) ProcessData() (State, error) {
 		return nil, er
 	}
 
-	_, er = readFromConnection(s.conn, input, "Error Socks5 Reading Username Length")
+	userNameBytes, er := extractSizePrefixedString(s.conn)
 	if er != nil {
 		return nil, er
 	}
+	userName := string(userNameBytes[1:])
 
-	user_name := ""
-	if input[0] > 0 {
-		input = makeInput(int(input[0]))
-		_, er = readFromConnection(s.conn, input, "Error Socks5 Reading Username")
-		if er != nil {
-			return nil, er
-		}
-		user_name = string(input)
-	}
-
-	input = makeInput(1)
-	_, er = readFromConnection(s.conn, input, "Error Socks5 Reading Password Length")
+	passWordBytes, er := extractSizePrefixedString(s.conn)
 	if er != nil {
 		return nil, er
 	}
+	passWord := string(passWordBytes[1:])
 
-	pass_word := ""
-	if input[0] > 0 {
-		input = makeInput(int(input[0]))
-		_, er = readFromConnection(s.conn, input, "Error Socks5 Reading Username")
-		if er != nil {
-			return nil, er
-		}
-		pass_word = string(input)
-	}
-
-	if user_name != "Alirexa" || pass_word != "Alirexa" {
+	if userName != "Alirexa" || passWord != "Alirexa" {
 		writeToConnection(s.conn, []byte{0x01, 0x01}, "")
-		return nil, errorT{ "Error Wrong Username Or Password:" + user_name + ":" + pass_word }
+		return nil, errorT{ "Error Wrong Username Or Password:   " + userName + ":" + passWord}
 	}
 
 	_, er = writeToConnection(s.conn, []byte{0x01, 0x00}, "Error Writing User Password Auth Reply")
